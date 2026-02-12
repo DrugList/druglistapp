@@ -9,42 +9,61 @@
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f4f9; }
         
-        /* Header Styling */
+        /* Header Styling - Layout Changed */
         .app-header {
             background-color: #d32f2f;
             color: white;
-            padding: 20px;
-            text-align: center;
+            padding: 15px 30px; /* Added side padding */
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 15px;
+            justify-content: space-between; /* Pushes Left and Right apart */
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            flex-wrap: wrap; 
+            flex-wrap: wrap; /* Allows wrapping on small mobile screens */
+        }
+
+        /* Left Side: Icon + Title */
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
         }
         .app-header h1 { margin: 0; font-size: 24px; letter-spacing: 1px; }
         .app-header .material-icons { font-size: 32px; }
 
-        /* Button Styling (PDF & Refresh) */
+        /* Right Side: Download text + Buttons */
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        /* The "Muat turun:" text */
+        .download-label {
+            color: white;
+            font-size: 14px;
+        }
+
+        /* Button Styling */
         .header-btn {
             background-color: white;
             color: #d32f2f;
             padding: 8px 16px;
-            border-radius: 20px;
+            border-radius: 4px; /* Slightly squared corners like the image */
             text-decoration: none;
             font-weight: bold;
             font-size: 14px;
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            transition: transform 0.2s;
+            transition: opacity 0.2s;
             border: none;
             cursor: pointer;
         }
         .header-btn:hover {
-            transform: scale(1.05);
+            opacity: 0.9;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
+        
         /* Spinner Animation */
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -89,21 +108,27 @@
 <body>
 
 <div class="app-header">
-    <span class="material-icons">warning</span>
-    <h1 id="pageTitle">HIGH ALERT MEDICATIONS</h1>
+    <!-- LEFT SIDE: Icon and Title -->
+    <div class="header-left">
+        <span class="material-icons">warning</span>
+        <h1 id="pageTitle">HIGH ALERT MEDICATIONS</h1>
+    </div>
     
-    <div style="display: flex; gap: 10px;">
+    <!-- RIGHT SIDE: Download text and Buttons -->
+    <div class="header-right">
+        <span class="download-label">Muat turun:</span>
+        
+        <!-- PDF BUTTON -->
+        <a id="pdfButton" href="#" target="_blank" class="header-btn" style="display: none;">
+            <span class="material-icons" style="font-size: 18px;">picture_as_pdf</span>
+            PDF
+        </a>
+
         <!-- REFRESH BUTTON -->
-        <button id="refreshBtn" onclick="forceRefresh()" class="header-btn">
+        <button id="refreshBtn" onclick="forceRefresh()" class="header-btn" style="background-color: #2196f3; color: white;">
             <span class="material-icons" style="font-size: 18px;">refresh</span>
             Refresh
         </button>
-
-        <!-- PDF BUTTON -->
-        <a id="pdfButton" href="#" target="_blank" class="header-btn" style="display: none;">
-            <span class="material-icons" style="font-size: 18px;">download</span>
-            PDF
-        </a>
     </div>
 </div>
 
@@ -131,7 +156,6 @@
     // --- CONFIG ---
     const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
     const SHEET_NAME = 'Sheet1';
-    // We add a timestamp to the URL to try and bypass caching when forcing refresh
     const BASE_URL = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_NAME}`;
 
     const CONFIG_COLUMNS = ['CONFIG_TITLE', 'CONFIG_PDF'];
@@ -250,7 +274,6 @@
             searching: true,
             initComplete: function() {
                 $('#loading').hide();
-                // Stop the spinner on the button
                 $('#refreshBtn .material-icons').removeClass('spin');
             }
         });
@@ -266,10 +289,9 @@
     async function fetchSheetData(force = false) {
         let url = BASE_URL;
         
-        // If force refresh, add a timestamp to try and bypass cache
         if (force) {
             url = BASE_URL + `?t=${new Date().getTime()}`;
-            $('#refreshBtn .material-icons').addClass('spin'); // Start spinning
+            $('#refreshBtn .material-icons').addClass('spin');
         }
 
         try {
@@ -283,15 +305,12 @@
         }
     }
 
-    // Function for the button
     function forceRefresh() {
         fetchSheetData(true);
     }
 
     $(document).ready(function() {
         fetchSheetData();
-        
-        // Auto-refresh every 60 seconds (increased slightly to save resources)
         setInterval(() => fetchSheetData(false), 60000);
 
         $('#customSearch').on('keyup clear', function() {

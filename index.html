@@ -20,12 +20,12 @@
             justify-content: center;
             gap: 15px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            flex-wrap: wrap; /* Allows wrapping on small screens */
+            flex-wrap: wrap; 
         }
         .app-header h1 { margin: 0; font-size: 24px; letter-spacing: 1px; }
         .app-header .material-icons { font-size: 32px; }
 
-        /* NEW: PDF Button Styling */
+        /* Button Styling (PDF & Refresh) */
         .header-btn {
             background-color: white;
             color: #d32f2f;
@@ -38,11 +38,16 @@
             align-items: center;
             gap: 5px;
             transition: transform 0.2s;
+            border: none;
+            cursor: pointer;
         }
         .header-btn:hover {
             transform: scale(1.05);
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
+        /* Spinner Animation */
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         /* Container */
         .container { max-width: 1200px; margin: 20px auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; }
@@ -85,13 +90,21 @@
 
 <div class="app-header">
     <span class="material-icons">warning</span>
-    <!-- Added ID to update title dynamically -->
     <h1 id="pageTitle">HIGH ALERT MEDICATIONS</h1>
-    <!-- Added ID for the PDF button -->
-    <a id="pdfButton" href="#" target="_blank" class="header-btn" style="display: none;">
-        <span class="material-icons" style="font-size: 18px;">download</span>
-        PDF
-    </a>
+    
+    <div style="display: flex; gap: 10px;">
+        <!-- REFRESH BUTTON -->
+        <button id="refreshBtn" onclick="forceRefresh()" class="header-btn">
+            <span class="material-icons" style="font-size: 18px;">refresh</span>
+            Refresh
+        </button>
+
+        <!-- PDF BUTTON -->
+        <a id="pdfButton" href="#" target="_blank" class="header-btn" style="display: none;">
+            <span class="material-icons" style="font-size: 18px;">download</span>
+            PDF
+        </a>
+    </div>
 </div>
 
 <div class="container">
@@ -118,11 +131,10 @@
     // --- CONFIG ---
     const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
     const SHEET_NAME = 'Sheet1';
-    const DATA_URL = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_NAME}`;
+    // We add a timestamp to the URL to try and bypass caching when forcing refresh
+    const BASE_URL = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_NAME}`;
 
-    // Columns to READ but HIDE from the table
     const CONFIG_COLUMNS = ['CONFIG_TITLE', 'CONFIG_PDF'];
-
     let dataTable;
 
     // --- IMAGE URL PARSER ---
@@ -150,13 +162,11 @@
         return null;
     }
 
-    // --- PDF URL PARSER ---
     function getPdfViewUrl(rawUrl) {
         if (!rawUrl || !rawUrl.trim()) return null;
         let url = rawUrl.trim();
         let id = null;
 
-        // Extract ID
         let match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
         if (match) id = match[1];
         if (!id) {
@@ -164,11 +174,10 @@
             if (match) id = match[1];
         }
 
-        // Return a direct view link for PDF
         if (id) {
             return `https://drive.google.com/file/d/${id}/view`;
         }
-        return url; // Fallback to original link
+        return url;
     }
 
     // --- BUILD TABLE ---
@@ -180,14 +189,12 @@
 
         const firstRow = data[0];
 
-        // --- 1. HANDLE CONFIG (TITLE & PDF) ---
-        // Update Title if column exists
+        // Handle Config
         if (firstRow['CONFIG_TITLE']) {
             $('#pageTitle').text(firstRow['CONFIG_TITLE']);
-            document.title = firstRow['CONFIG_TITLE']; // Update browser tab title too
+            document.title = firstRow['CONFIG_TITLE'];
         }
 
-        // Update PDF Button if column exists
         if (firstRow['CONFIG_PDF']) {
             const pdfUrl = getPdfViewUrl(firstRow['CONFIG_PDF']);
             if (pdfUrl) {
@@ -195,14 +202,10 @@
             }
         }
 
-        // --- 2. PREPARE TABLE HEADERS ---
-        // Get all keys from the first row
+        // Prepare Headers
         let allHeaders = Object.keys(firstRow);
-
-        // Filter OUT the config columns so they don't show in the table
         let tableHeaders = allHeaders.filter(h => !CONFIG_COLUMNS.includes(h));
 
-        // --- 3. INIT DATATABLES ---
         if ($.fn.dataTable.isDataTable('#dataTable')) {
             $('#dataTable').DataTable().destroy();
             $('#dataTable').empty();
@@ -247,6 +250,8 @@
             searching: true,
             initComplete: function() {
                 $('#loading').hide();
+                // Stop the spinner on the button
+                $('#refreshBtn .material-icons').removeClass('spin');
             }
         });
     }
@@ -258,20 +263,36 @@
         modalImg.src = src;
     }
 
-    async function fetchSheetData() {
+    async function fetchSheetData(force = false) {
+        let url = BASE_URL;
+        
+        // If force refresh, add a timestamp to try and bypass cache
+        if (force) {
+            url = BASE_URL + `?t=${new Date().getTime()}`;
+            $('#refreshBtn .material-icons').addClass('spin'); // Start spinning
+        }
+
         try {
-            const response = await fetch(DATA_URL);
+            const response = await fetch(url);
             const data = await response.json();
             initTable(data);
         } catch (error) {
             console.error('Error:', error);
             $('#loading').html('Error loading data.').css('color', 'red');
+            $('#refreshBtn .material-icons').removeClass('spin');
         }
+    }
+
+    // Function for the button
+    function forceRefresh() {
+        fetchSheetData(true);
     }
 
     $(document).ready(function() {
         fetchSheetData();
-        setInterval(fetchSheetData, 30000);
+        
+        // Auto-refresh every 60 seconds (increased slightly to save resources)
+        setInterval(() => fetchSheetData(false), 60000);
 
         $('#customSearch').on('keyup clear', function() {
             if ($.fn.dataTable.isDataTable('#dataTable')) {

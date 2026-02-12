@@ -1,234 +1,210 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Drug List</title>
-  <!-- DataTables CSS for nice table, search, pagination -->
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      margin: 20px;
-      background-color: #f4f4f9;
-    }
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      background: white;
-      padding: 20px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      border-radius: 8px;
-    }
-    h1 {
-      text-align: center;
-      color: #333;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>High Alert Medications</title>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <!-- Google Material Icons for the header -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f4f9; }
+        
+        /* Custom Header Styling */
+        .app-header {
+            background-color: #d32f2f; /* Red color */
+            color: white;
+            padding: 20px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .app-header h1 { margin: 0; font-size: 24px; letter-spacing: 1px; }
+        .app-header .material-icons { font-size: 32px; }
 
-    /* Table image thumbnails */
-    .table-img {
-      width: 60px;
-      height: 60px;
-      object-fit: cover;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: transform 0.2s;
-      border: 1px solid #ddd;
-    }
-    .table-img:hover {
-      transform: scale(1.1);
-      opacity: 0.8;
-    }
+        /* Container */
+        .container { max-width: 1200px; margin: 20px auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; }
 
-    /* Modal for zoomed image */
-    .modal {
-      display: none;
-      position: fixed;
-      z-index: 1000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0,0,0,0.8);
-      justify-content: center;
-      align-items: center;
-    }
-    .modal-content {
-      max-width: 90%;
-      max-height: 90%;
-      border-radius: 8px;
-    }
-    .close {
-      position: absolute;
-      top: 20px;
-      right: 30px;
-      color: white;
-      font-size: 40px;
-      font-weight: bold;
-      cursor: pointer;
-    }
+        /* Custom Search Bar Styling */
+        .custom-search-wrapper { margin-bottom: 20px; }
+        .custom-search-input {
+            width: 100%; 
+            padding: 12px 20px; 
+            font-size: 16px; 
+            border: 2px solid #ddd; 
+            border-radius: 6px;
+            box-sizing: border-box; /* Ensures padding doesn't increase width */
+            transition: border-color 0.3s;
+        }
+        .custom-search-input:focus { border-color: #d32f2f; outline: none; }
 
-    #loading {
-      text-align: center;
-      padding: 50px;
-      font-size: 18px;
-      color: #666;
-    }
-  </style>
+        /* Table Styling */
+        #dataTable { width: 100% !important; border-collapse: collapse; }
+        #dataTable th { background-color: #f8f9fa; text-align: left; padding: 12px; border-bottom: 2px solid #ddd; }
+        #dataTable td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        
+        /* Smart Image Styling */
+        .table-img { 
+            width: 80px; height: 80px; object-fit: cover; border-radius: 4px; cursor: pointer; 
+            border: 1px solid #eee; transition: transform 0.2s; 
+        }
+        .table-img:hover { transform: scale(1.05); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+
+        /* Remove default DataTables controls we don't want */
+        .dataTables_length, .dataTables_info, .dataTables_paginate { display: none; }
+        
+        /* No Image Placeholder */
+        .no-image { color: #999; font-style: italic; font-size: 0.9em; }
+
+        /* Modal for Zoom */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
+        .modal-content { max-width: 90%; max-height: 90%; border-radius: 8px; }
+    </style>
 </head>
 <body>
 
+<!-- Header Section -->
+<div class="app-header">
+    <span class="material-icons">warning</span>
+    <h1>HIGH ALERT MEDICATIONS</h1>
+</div>
+
 <div class="container">
-  <h1>Drug List</h1>
-  <div id="loading">Loading data…</div>
-  <table id="dataTable" class="display" style="width:100%">
-    <thead></thead>
-    <tbody></tbody>
-  </table>
+    <!-- Custom Search Input -->
+    <div class="custom-search-wrapper">
+        <input type="text" id="customSearch" class="custom-search-input" placeholder="Search medication name...">
+    </div>
+
+    <div id="loading" style="text-align:center; padding: 20px;">Loading Data...</div>
+
+    <table id="dataTable">
+        <thead></thead>
+        <tbody></tbody>
+    </table>
 </div>
 
-<!-- Modal for zoomed image -->
+<!-- Image Zoom Modal -->
 <div id="imgModal" class="modal" onclick="this.style.display='none'">
-  <span class="close">&times;</span>
-  <img class="modal-content" id="modalImg">
+    <img class="modal-content" id="modalImg">
 </div>
 
-<!-- JS libraries -->
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 
 <script>
-  // ============ CONFIG ============
-  const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
-  const SHEET_NAME = 'Sheet1'; // change if your sheet tab is named differently
+    const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
+    const SHEET_NAME = 'Sheet1'; // Change if your tab name is different
+    const DATA_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tSheet=${SHEET_NAME}&headers=1&tq=&tqx=out:json`;
 
-  // Correct gviz URL format (using &sheet=... not tSheet)
-  const DATA_URL =
-    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq` +
-    `?tqx=out:json` +
-    `&sheet=${encodeURIComponent(SHEET_NAME)}` +
-    `&headers=1`;
+    let dataTable;
 
-  let dataTable;
+    // Smart Function to Convert Google Drive Links to Images
+    function getImageUrl(rawUrl) {
+        if (!rawUrl || !rawUrl.trim()) return null;
+        
+        let url = rawUrl.trim();
 
-  // ============ IMAGE URL HANDLING ============
-
-  /**
-   * Convert various possible URLs into a usable image URL.
-   * - Google Drive links -> https://drive.google.com/uc?export=view&id=FILE_ID
-   * - Direct image URLs -> keep as-is.
-   */
-  function getImageUrl(rawUrl) {
-    if (!rawUrl) {
-      return "";
-    }
-
-    const s = rawUrl.trim();
-
-    // 1) Google Drive "file/d/ID/view" or "open?id=ID"
-    let match = s.match(/\/d\/([a-zA-Z0-9_-]+)/);
-    if (!match) {
-      match = s.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-    }
-
-    if (match && match[1]) {
-      const id = match[1];
-      return `https://drive.google.com/uc?export=view&id=${id}`;
-    }
-
-    // 2) Direct image URL (ends with image extension)
-    if (/\.(jpeg|jpg|gif|png|webp)$/i.test(s)) {
-      return s;
-    }
-
-    // 3) If it looks like an image URL but without extension, try as-is
-    if (/^https?:\/\/.+\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i.test(s)) {
-      return s;
-    }
-
-    // 4) Otherwise, assume it's not an image
-    return "";
-  }
-
-  // ============ TABLE RENDERING ============
-
-  function initTable(data) {
-    const headers = data.table.cols.map(col => col.label || col.id);
-
-    // Build thead
-    const $thead = $('#dataTable thead');
-    $thead.empty();
-    headers.forEach(h => {
-      $thead.append(`<th>${h}</th>`);
-    });
-
-    // Build rows
-    const rows = data.table.rows.map(row => {
-      return row.c.map(cell => {
-        if (!cell) return "";
-
-        const rawValue = cell.v != null ? cell.v.toString() : "";
-        const imgUrl = getImageUrl(rawValue);
-
-        if (imgUrl) {
-          // Show image thumbnail; on error, hide it
-          return `<img src="${imgUrl}" class="table-img" onclick="zoomImage('${imgUrl}')" onerror="this.style.display='none'">`;
+        // 1. Check if it's a Google Drive Link
+        // Pattern A: /d/ID/
+        let match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match) {
+            return `https://drive.google.com/uc?export=view&id=${match[1]}`;
         }
 
-        // Not an image -> show text
-        return cell.v;
-      });
+        // Pattern B: open?id=ID
+        match = url.match(/id=([a-zA-Z0-9_-]+)/);
+        if (match) {
+            return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+        }
+
+        // 2. Check if it's a standard image link (ends in .jpg, .png)
+        if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
+            return url;
+        }
+
+        return null;
+    }
+
+    function initTable(data) {
+        const headers = data.table.cols.map(col => col.label || col.id);
+        
+        // Build Header
+        const thead = $('#dataTable thead');
+        thead.empty();
+        headers.forEach(h => thead.append(`<th>${h}</th>`));
+
+        // Build Rows
+        const rows = data.table.rows.map(row => {
+            return row.c.map(cell => {
+                if (!cell) return "";
+                
+                let rawVal = cell.v ? cell.v.toString() : "";
+                let imgUrl = getImageUrl(rawVal);
+
+                // If we found a valid image URL
+                if (imgUrl) {
+                    return `<img src="${imgUrl}" class="table-img" onclick="zoomImage('${imgUrl}')" onerror="this.parentElement.innerHTML='<span class=\\'no-image\\'>Image Error</span>'">`;
+                }
+                
+                // If cell is empty or specifically says "No Image"
+                if (!rawVal || rawVal.toLowerCase() === 'no image') {
+                    return `<span class="no-image">No Image</span>`;
+                }
+
+                // Otherwise just text
+                return rawVal;
+            });
+        });
+
+        // Initialize DataTable
+        if (dataTable) {
+            dataTable.clear().rows.add(rows).draw();
+        } else {
+            dataTable = $('#dataTable').DataTable({
+                data: rows,
+                columns: headers.map(h => ({ title: h })),
+                paging: false, // FALSE = Shows all data (no "show entries")
+                searching: true, // TRUE = Enables search logic
+                info: false, // Hides "Showing 1 of X" text
+                responsive: true
+            });
+        }
+    }
+
+    function zoomImage(src) {
+        const modal = document.getElementById('imgModal');
+        const modalImg = document.getElementById('modalImg');
+        modal.style.display = "flex";
+        modalImg.src = src;
+    }
+
+    async function fetchSheetData() {
+        try {
+            const response = await fetch(DATA_URL);
+            const text = await response.text();
+            const jsonString = text.substring(47).slice(0, -2);
+            const json = JSON.parse(jsonString);
+            
+            initTable(json);
+            $('#loading').hide();
+        } catch (error) {
+            console.error('Error:', error);
+            $('#loading').html('Error loading data.');
+        }
+    }
+
+    $(document).ready(function() {
+        fetchSheetData();
+
+        // Connect custom search bar to DataTables
+        $('#customSearch').on('keyup clear', function() {
+            dataTable.search($(this).val()).draw();
+        });
     });
 
-    if (dataTable) {
-      dataTable.clear().rows.add(rows).draw();
-    } else {
-      dataTable = $('#dataTable').DataTable({
-        data: rows,
-        columns: headers.map(h => ({ title: h })),
-        pageLength: 10,
-        responsive: true
-      });
-    }
-  }
-
-  // ============ ZOOM MODAL ============
-
-  function zoomImage(src) {
-    const modal = document.getElementById('imgModal');
-    const modalImg = document.getElementById('modalImg');
-    modal.style.display = "flex";
-    modalImg.src = src;
-  }
-
-  // ============ FETCH DATA FROM GOOGLE SHEET ============
-
-  async function fetchSheetData() {
-    try {
-      const response = await fetch(DATA_URL);
-      const text = await response.text();
-
-      // Strip JSONP wrapper: google.visualization.Query.setResponse({...});
-      const jsonString = text.substring(47).slice(0, -2);
-      const json = JSON.parse(jsonString);
-
-      initTable(json);
-      $('#loading').hide();
-    } catch (error) {
-      console.error('Error loading data:', error);
-      $('#loading').html('Error loading data. Check Sheet permissions and gviz URL.');
-    }
-  }
-
-  // ============ INIT ============
-
-  $(document).ready(function () {
-    fetchSheetData();
-
-    // Auto-refresh every 60 seconds
-    setInterval(fetchSheetData, 60000);
-  });
 </script>
-
 </body>
 </html>

@@ -1,134 +1,233 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Inventory</title>
-    <!-- CSS for DataTables (Search/Pagination/Sort) -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f4f4f9; }
-        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; }
-        h1 { text-align: center; color: #333; }
-        
-        /* Smart Image Styling */
-        .table-img { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; cursor: pointer; transition: transform 0.2s; }
-        .table-img:hover { transform: scale(1.1); opacity: 0.8; }
-        
-        /* Modal for Zoom */
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
-        .modal-content { max-width: 90%; max-height: 90%; border-radius: 8px; }
-        .close { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; font-weight: bold; cursor: pointer; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drug List</title>
+  <!-- DataTables CSS for nice table, search, pagination -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 20px;
+      background-color: #f4f4f9;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
 
-        /* Loading State */
-        #loading { text-align: center; padding: 50px; font-size: 18px; color: #666; }
-    </style>
+    /* Table image thumbnails */
+    .table-img {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      border: 1px solid #ddd;
+    }
+    .table-img:hover {
+      transform: scale(1.1);
+      opacity: 0.8;
+    }
+
+    /* Modal for zoomed image */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.8);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 8px;
+    }
+    .close {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      color: white;
+      font-size: 40px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #loading {
+      text-align: center;
+      padding: 50px;
+      font-size: 18px;
+      color: #666;
+    }
+  </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Product Database</h1>
-    <div id="loading">Loading Data...</div>
-    <table id="dataTable" class="display" style="width:100%">
-        <thead>
-            <!-- Headers will be generated automatically -->
-        </thead>
-        <tbody>
-            <!-- Rows will be generated automatically -->
-        </tbody>
-    </table>
+  <h1>Drug List</h1>
+  <div id="loading">Loading data…</div>
+  <table id="dataTable" class="display" style="width:100%">
+    <thead></thead>
+    <tbody></tbody>
+  </table>
 </div>
 
-<!-- Image Zoom Modal -->
+<!-- Modal for zoomed image -->
 <div id="imgModal" class="modal" onclick="this.style.display='none'">
-    <span class="close">&times;</span>
-    <img class="modal-content" id="modalImg">
+  <span class="close">&times;</span>
+  <img class="modal-content" id="modalImg">
 </div>
 
-<!-- JS Libraries -->
+<!-- JS libraries -->
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 
 <script>
-    // CONFIGURATION
-    // This is the public JSON feed link from your Google Sheet.
-    // We use the gviz API to get JSON without authentication.
-    const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
-    const SHEET_NAME = 'Sheet1'; // Change this if your sheet tab has a different name
-    const DATA_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tSheet=${SHEET_NAME}&headers=1&tq=&tqx=out:json`;
+  // ============ CONFIG ============
+  const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
+  const SHEET_NAME = 'Sheet1'; // change if your sheet tab is named differently
 
-    let dataTable;
+  // Correct gviz URL format (using &sheet=... not tSheet)
+  const DATA_URL =
+    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq` +
+    `?tqx=out:json` +
+    `&sheet=${encodeURIComponent(SHEET_NAME)}` +
+    `&headers=1`;
 
-    function initTable(data) {
-        const headers = data.table.cols.map(col => col.label || col.id);
-        
-        // Generate Header HTML
-        const thead = $('#dataTable thead');
-        thead.empty();
-        headers.forEach(h => {
-            thead.append(`<th>${h}</th>`);
-        });
+  let dataTable;
 
-        // Process Rows
-        const rows = data.table.rows.map(row => {
-            return row.c.map(cell => {
-                if (!cell) return "";
-                // Check if the cell is an image URL
-                // We assume if a cell contains .jpg, .png, .gif it is an image. 
-                // You can refine this logic.
-                if (cell.v && typeof cell.v === 'string' && cell.v.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
-                    return `<img src="${cell.v}" class="table-img" onclick="zoomImage('${cell.v}')">`;
-                }
-                return cell.v;
-            });
-        });
+  // ============ IMAGE URL HANDLING ============
 
-        // Initialize DataTable
-        if (dataTable) {
-            dataTable.clear().rows.add(rows).draw();
-        } else {
-            dataTable = $('#dataTable').DataTable({
-                data: rows,
-                columns: headers.map(h => ({ title: h })),
-                pageLength: 10, // Default rows per page
-                responsive: true
-            });
-        }
+  /**
+   * Convert various possible URLs into a usable image URL.
+   * - Google Drive links -> https://drive.google.com/uc?export=view&id=FILE_ID
+   * - Direct image URLs -> keep as-is.
+   */
+  function getImageUrl(rawUrl) {
+    if (!rawUrl) {
+      return "";
     }
 
-    function zoomImage(src) {
-        const modal = document.getElementById('imgModal');
-        const modalImg = document.getElementById('modalImg');
-        modal.style.display = "flex";
-        modalImg.src = src;
+    const s = rawUrl.trim();
+
+    // 1) Google Drive "file/d/ID/view" or "open?id=ID"
+    let match = s.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (!match) {
+      match = s.match(/[?&]id=([a-zA-Z0-9_-]+)/);
     }
 
-    // Fetch Data Function
-    async function fetchSheetData() {
-        try {
-            const response = await fetch(DATA_URL);
-            const text = await response.text();
-            // The response comes wrapped in a function call, we need to strip it
-            // Format: google.visualization.Query.setResponse({...});
-            const jsonString = text.substring(47).slice(0, -2);
-            const json = JSON.parse(jsonString);
-            
-            initTable(json);
-            $('#loading').hide();
-        } catch (error) {
-            console.error('Error loading data:', error);
-            $('#loading').html('Error loading data. Check Sheet permissions.');
-        }
+    if (match && match[1]) {
+      const id = match[1];
+      return `https://drive.google.com/uc?export=view&id=${id}`;
     }
 
-    // Initial Load
-    $(document).ready(function() {
-        fetchSheetData();
-        
-        // OPTIONAL: Auto-refresh every 30 seconds to check for changes
-        setInterval(fetchSheetData, 30000);
+    // 2) Direct image URL (ends with image extension)
+    if (/\.(jpeg|jpg|gif|png|webp)$/i.test(s)) {
+      return s;
+    }
+
+    // 3) If it looks like an image URL but without extension, try as-is
+    if (/^https?:\/\/.+\.(jpeg|jpg|gif|png|webp)(\?.*)?$/i.test(s)) {
+      return s;
+    }
+
+    // 4) Otherwise, assume it's not an image
+    return "";
+  }
+
+  // ============ TABLE RENDERING ============
+
+  function initTable(data) {
+    const headers = data.table.cols.map(col => col.label || col.id);
+
+    // Build thead
+    const $thead = $('#dataTable thead');
+    $thead.empty();
+    headers.forEach(h => {
+      $thead.append(`<th>${h}</th>`);
     });
 
+    // Build rows
+    const rows = data.table.rows.map(row => {
+      return row.c.map(cell => {
+        if (!cell) return "";
+
+        const rawValue = cell.v != null ? cell.v.toString() : "";
+        const imgUrl = getImageUrl(rawValue);
+
+        if (imgUrl) {
+          // Show image thumbnail; on error, hide it
+          return `<img src="${imgUrl}" class="table-img" onclick="zoomImage('${imgUrl}')" onerror="this.style.display='none'">`;
+        }
+
+        // Not an image -> show text
+        return cell.v;
+      });
+    });
+
+    if (dataTable) {
+      dataTable.clear().rows.add(rows).draw();
+    } else {
+      dataTable = $('#dataTable').DataTable({
+        data: rows,
+        columns: headers.map(h => ({ title: h })),
+        pageLength: 10,
+        responsive: true
+      });
+    }
+  }
+
+  // ============ ZOOM MODAL ============
+
+  function zoomImage(src) {
+    const modal = document.getElementById('imgModal');
+    const modalImg = document.getElementById('modalImg');
+    modal.style.display = "flex";
+    modalImg.src = src;
+  }
+
+  // ============ FETCH DATA FROM GOOGLE SHEET ============
+
+  async function fetchSheetData() {
+    try {
+      const response = await fetch(DATA_URL);
+      const text = await response.text();
+
+      // Strip JSONP wrapper: google.visualization.Query.setResponse({...});
+      const jsonString = text.substring(47).slice(0, -2);
+      const json = JSON.parse(jsonString);
+
+      initTable(json);
+      $('#loading').hide();
+    } catch (error) {
+      console.error('Error loading data:', error);
+      $('#loading').html('Error loading data. Check Sheet permissions and gviz URL.');
+    }
+  }
+
+  // ============ INIT ============
+
+  $(document).ready(function () {
+    fetchSheetData();
+
+    // Auto-refresh every 60 seconds
+    setInterval(fetchSheetData, 60000);
+  });
 </script>
 
 </body>

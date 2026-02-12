@@ -20,9 +20,29 @@
             justify-content: center;
             gap: 15px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex-wrap: wrap; /* Allows wrapping on small screens */
         }
         .app-header h1 { margin: 0; font-size: 24px; letter-spacing: 1px; }
         .app-header .material-icons { font-size: 32px; }
+
+        /* NEW: PDF Button Styling */
+        .header-btn {
+            background-color: white;
+            color: #d32f2f;
+            padding: 8px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: transform 0.2s;
+        }
+        .header-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
 
         /* Container */
         .container { max-width: 1200px; margin: 20px auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; }
@@ -59,29 +79,28 @@
         /* Modal for Zoom */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
         .modal-content { max-width: 90%; max-height: 90%; border-radius: 8px; }
-
-        /* Text column styling */
-        .med-name { font-weight: 700; color: #222; }
-        .other-data { font-size: 14px; color: #555; }
     </style>
 </head>
 <body>
 
 <div class="app-header">
     <span class="material-icons">warning</span>
-    <h1>HIGH ALERT MEDICATIONS</h1>
+    <!-- Added ID to update title dynamically -->
+    <h1 id="pageTitle">HIGH ALERT MEDICATIONS</h1>
+    <!-- Added ID for the PDF button -->
+    <a id="pdfButton" href="#" target="_blank" class="header-btn" style="display: none;">
+        <span class="material-icons" style="font-size: 18px;">download</span>
+        PDF
+    </a>
 </div>
 
 <div class="container">
-    <!-- Custom Search Input -->
     <div class="custom-search-wrapper">
         <input type="text" id="customSearch" class="custom-search-input" placeholder="Search medication name...">
     </div>
 
-    <!-- Status Message -->
     <div id="loading" style="text-align:center; padding: 20px; font-weight: bold;">Initializing...</div>
 
-    <!-- Table Structure -->
     <table id="dataTable">
         <thead></thead>
         <tbody></tbody>
@@ -100,6 +119,9 @@
     const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
     const SHEET_NAME = 'Sheet1';
     const DATA_URL = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_NAME}`;
+
+    // Columns to READ but HIDE from the table
+    const CONFIG_COLUMNS = ['CONFIG_TITLE', 'CONFIG_PDF'];
 
     let dataTable;
 
@@ -128,43 +150,72 @@
         return null;
     }
 
+    // --- PDF URL PARSER ---
+    function getPdfViewUrl(rawUrl) {
+        if (!rawUrl || !rawUrl.trim()) return null;
+        let url = rawUrl.trim();
+        let id = null;
+
+        // Extract ID
+        let match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match) id = match[1];
+        if (!id) {
+            match = url.match(/id=([a-zA-Z0-9_-]+)/);
+            if (match) id = match[1];
+        }
+
+        // Return a direct view link for PDF
+        if (id) {
+            return `https://drive.google.com/file/d/${id}/view`;
+        }
+        return url; // Fallback to original link
+    }
+
     // --- BUILD TABLE ---
     function initTable(data) {
-        console.log("Step 3: initTable called with data:", data);
-
-        // 1. VALIDATE DATA
-        if (!Array.isArray(data)) {
-            $('#loading').html('Error: Data format is incorrect. (Not an Array)').css('color', 'red');
-            console.error("Data is not an array", data);
-            return;
-        }
-        
-        if (data.length === 0) {
-            $('#loading').html('Sheet is empty or name is wrong.').css('color', 'red');
+        if (!Array.isArray(data) || data.length === 0) {
+            $('#loading').html('No data found.').css('color', 'red');
             return;
         }
 
-        // 2. PREPARE HEADERS
-        const headers = Object.keys(data[0]);
-        console.log("Step 4: Headers found:", headers);
+        const firstRow = data[0];
 
-        // 3. DESTROY OLD TABLE (Crucial Step)
+        // --- 1. HANDLE CONFIG (TITLE & PDF) ---
+        // Update Title if column exists
+        if (firstRow['CONFIG_TITLE']) {
+            $('#pageTitle').text(firstRow['CONFIG_TITLE']);
+            document.title = firstRow['CONFIG_TITLE']; // Update browser tab title too
+        }
+
+        // Update PDF Button if column exists
+        if (firstRow['CONFIG_PDF']) {
+            const pdfUrl = getPdfViewUrl(firstRow['CONFIG_PDF']);
+            if (pdfUrl) {
+                $('#pdfButton').attr('href', pdfUrl).show();
+            }
+        }
+
+        // --- 2. PREPARE TABLE HEADERS ---
+        // Get all keys from the first row
+        let allHeaders = Object.keys(firstRow);
+
+        // Filter OUT the config columns so they don't show in the table
+        let tableHeaders = allHeaders.filter(h => !CONFIG_COLUMNS.includes(h));
+
+        // --- 3. INIT DATATABLES ---
         if ($.fn.dataTable.isDataTable('#dataTable')) {
-            console.log("Step 5: Destroying old table...");
             $('#dataTable').DataTable().destroy();
-            $('#dataTable').empty(); 
+            $('#dataTable').empty();
         }
 
-        // 4. BUILD HTML STRUCTURE
         let tableHtml = '<thead><tr>';
-        headers.forEach(h => {
+        tableHeaders.forEach(h => {
             tableHtml += `<th>${h}</th>`;
         });
         tableHtml += '</tr></thead><tbody></tbody>';
         $('#dataTable').html(tableHtml);
 
-        // 5. DATATABLES COLUMN CONFIG
-        const columnsConfig = headers.map(key => {
+        const columnsConfig = tableHeaders.map(key => {
             return {
                 data: key,
                 render: function(data, type, row) {
@@ -186,8 +237,6 @@
             };
         });
 
-        // 6. INITIALIZE DATATABLES
-        console.log("Step 6: Initializing DataTables...");
         dataTable = $('#dataTable').DataTable({
             data: data,
             columns: columnsConfig,
@@ -197,13 +246,11 @@
             ordering: true,
             searching: true,
             initComplete: function() {
-                console.log("Step 7: DataTables Init Complete.");
-                $('#loading').hide(); // Hide loading ONLY after success
+                $('#loading').hide();
             }
         });
     }
 
-    // --- MODAL ZOOM ---
     function zoomImage(src) {
         const modal = document.getElementById('imgModal');
         const modalImg = document.getElementById('modalImg');
@@ -211,28 +258,20 @@
         modalImg.src = src;
     }
 
-    // --- FETCH DATA ---
     async function fetchSheetData() {
-        console.log("Step 1: Fetching data from:", DATA_URL);
-        $('#loading').show().html('Loading Data...');
-        
         try {
             const response = await fetch(DATA_URL);
-            console.log("Step 2: Response received. Status:", response.status);
-            
             const data = await response.json();
-            
             initTable(data);
-
         } catch (error) {
-            console.error('Catch Error:', error);
-            $('#loading').html('Error loading data. Check Console (F12).').css('color', 'red');
+            console.error('Error:', error);
+            $('#loading').html('Error loading data.').css('color', 'red');
         }
     }
 
     $(document).ready(function() {
         fetchSheetData();
-        setInterval(fetchSheetData, 30000); // Refresh every 30s
+        setInterval(fetchSheetData, 30000);
 
         $('#customSearch').on('keyup clear', function() {
             if ($.fn.dataTable.isDataTable('#dataTable')) {

@@ -78,8 +78,10 @@
         <input type="text" id="customSearch" class="custom-search-input" placeholder="Search medication name...">
     </div>
 
-    <div id="loading" style="text-align:center; padding: 20px;">Loading Data...</div>
+    <!-- Status Message -->
+    <div id="loading" style="text-align:center; padding: 20px; font-weight: bold;">Initializing...</div>
 
+    <!-- Table Structure -->
     <table id="dataTable">
         <thead></thead>
         <tbody></tbody>
@@ -97,36 +99,28 @@
     // --- CONFIG ---
     const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
     const SHEET_NAME = 'Sheet1';
-
-    // Using opensheet.elk.sh (your public sheet must be "Anyone with the link")
     const DATA_URL = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_NAME}`;
 
     let dataTable;
 
-    // --- IMAGE URL PARSER (THUMBNAIL METHOD) ---
+    // --- IMAGE URL PARSER ---
     function getImageUrl(rawUrl) {
         if (!rawUrl || !rawUrl.trim()) return null;
-        
         let url = rawUrl.trim();
         let id = null;
 
-        // Case 1: drive.google.com/file/d/ID/...
         let match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
         if (match) id = match[1];
 
-        // Case 2: drive.google.com/open?id=ID
         if (!id) {
             match = url.match(/id=([a-zA-Z0-9_-]+)/);
             if (match) id = match[1];
         }
 
-        // If we found a Google Drive ID, use thumbnail URL
         if (id) {
-            // This is the same pattern your Apps Script uses
             return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
         }
 
-        // Case 3: Standard image link (ends in image extension)
         if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
             return url;
         }
@@ -134,59 +128,79 @@
         return null;
     }
 
-    // --- BUILD TABLE FROM JSON ARRAY ---
+    // --- BUILD TABLE ---
     function initTable(data) {
-        if (!data || !data.length) {
-            $('#loading').html('No data found in sheet.');
+        console.log("Step 3: initTable called with data:", data);
+
+        // 1. VALIDATE DATA
+        if (!Array.isArray(data)) {
+            $('#loading').html('Error: Data format is incorrect. (Not an Array)').css('color', 'red');
+            console.error("Data is not an array", data);
+            return;
+        }
+        
+        if (data.length === 0) {
+            $('#loading').html('Sheet is empty or name is wrong.').css('color', 'red');
             return;
         }
 
-        // 1) Determine headers from the first object keys
+        // 2. PREPARE HEADERS
         const headers = Object.keys(data[0]);
+        console.log("Step 4: Headers found:", headers);
 
-        // 2) Build header HTML
-        const thead = $('#dataTable thead');
-        thead.empty();
-        headers.forEach(h => thead.append(`<th>${h}</th>`));
-
-        // 3) Build rows
-        const rows = data.map(rowObj => {
-            return headers.map((col, index) => {
-                const rawVal = rowObj[col] || "";
-                const imgUrl = getImageUrl(rawVal);
-
-                // First column (medication name) gets bold styling
-                const cssClass = (index === 0) ? "med-name" : "other-data";
-
-                if (imgUrl) {
-                    return `<img src="${imgUrl}" class="table-img" onclick="zoomImage('${imgUrl}')" onerror="this.outerHTML='<span class=\\'img-error\\' title=\\'Image link found but could not load. Check Drive Permissions.\\'>Image Error</span>'">`;
-                }
-
-                // If cell explicitly says "No Image"
-                if (rawVal.toLowerCase() === 'no image') {
-                    return `<span class="no-image">No Image</span>`;
-                }
-
-                return `<div class="${cssClass}">${rawVal}</div>`;
-            });
-        });
-
-        // 4) Initialize (or update) DataTable
+        // 3. DESTROY OLD TABLE (Crucial Step)
         if ($.fn.dataTable.isDataTable('#dataTable')) {
-            $('#dataTable').DataTable().clear().rows.add(rows).draw();
-        } else {
-            dataTable = $('#dataTable').DataTable({
-                data: rows,
-                columns: headers.map(h => ({ title: h })),
-                dom: 't',          // only table, no default search/length/info
-                paging: false,
-                info: false,
-                ordering: true,
-                searching: true    // we still use internal search, just hidden
-            });
+            console.log("Step 5: Destroying old table...");
+            $('#dataTable').DataTable().destroy();
+            $('#dataTable').empty(); 
         }
 
-        $('#loading').hide();
+        // 4. BUILD HTML STRUCTURE
+        let tableHtml = '<thead><tr>';
+        headers.forEach(h => {
+            tableHtml += `<th>${h}</th>`;
+        });
+        tableHtml += '</tr></thead><tbody></tbody>';
+        $('#dataTable').html(tableHtml);
+
+        // 5. DATATABLES COLUMN CONFIG
+        const columnsConfig = headers.map(key => {
+            return {
+                data: key,
+                render: function(data, type, row) {
+                    if (!data) return "";
+                    
+                    let rawVal = data.toString();
+                    let imgUrl = getImageUrl(rawVal);
+
+                    if (imgUrl) {
+                        return `<img src="${imgUrl}" class="table-img" onclick="zoomImage('${imgUrl}')" onerror="this.outerHTML='<span class=\\'img-error\\'>Image Error</span>'">`;
+                    }
+
+                    if (rawVal.toLowerCase() === 'no image') {
+                        return `<span class="no-image">No Image</span>`;
+                    }
+
+                    return rawVal;
+                }
+            };
+        });
+
+        // 6. INITIALIZE DATATABLES
+        console.log("Step 6: Initializing DataTables...");
+        dataTable = $('#dataTable').DataTable({
+            data: data,
+            columns: columnsConfig,
+            dom: 't',
+            paging: false,
+            info: false,
+            ordering: true,
+            searching: true,
+            initComplete: function() {
+                console.log("Step 7: DataTables Init Complete.");
+                $('#loading').hide(); // Hide loading ONLY after success
+            }
+        });
     }
 
     // --- MODAL ZOOM ---
@@ -197,27 +211,29 @@
         modalImg.src = src;
     }
 
-    // --- FETCH SHEET DATA ---
+    // --- FETCH DATA ---
     async function fetchSheetData() {
+        console.log("Step 1: Fetching data from:", DATA_URL);
+        $('#loading').show().html('Loading Data...');
+        
         try {
             const response = await fetch(DATA_URL);
-            const data = await response.json();  // opensheet returns JSON directly
+            console.log("Step 2: Response received. Status:", response.status);
+            
+            const data = await response.json();
+            
             initTable(data);
-            $('#loading').hide();
+
         } catch (error) {
-            console.error('Error:', error);
-            $('#loading').html('Error loading data. Check console.');
+            console.error('Catch Error:', error);
+            $('#loading').html('Error loading data. Check Console (F12).').css('color', 'red');
         }
     }
 
     $(document).ready(function() {
-        // Initial load
         fetchSheetData();
+        setInterval(fetchSheetData, 30000); // Refresh every 30s
 
-        // Auto refresh every 30 seconds
-        setInterval(fetchSheetData, 30000);
-
-        // --- CONNECT CUSTOM SEARCH BAR TO DATATABLES SEARCH ---
         $('#customSearch').on('keyup clear', function() {
             if ($.fn.dataTable.isDataTable('#dataTable')) {
                 $('#dataTable').DataTable().search($(this).val()).draw();

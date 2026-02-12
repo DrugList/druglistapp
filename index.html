@@ -59,6 +59,10 @@
         /* Modal for Zoom */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
         .modal-content { max-width: 90%; max-height: 90%; border-radius: 8px; }
+
+        /* Text column styling */
+        .med-name { font-weight: 700; color: #222; }
+        .other-data { font-size: 14px; color: #555; }
     </style>
 </head>
 <body>
@@ -69,7 +73,7 @@
 </div>
 
 <div class="container">
-    <!-- Custom Search Input (The only one that will be visible) -->
+    <!-- Custom Search Input -->
     <div class="custom-search-wrapper">
         <input type="text" id="customSearch" class="custom-search-input" placeholder="Search medication name...">
     </div>
@@ -90,13 +94,16 @@
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 
 <script>
+    // --- CONFIG ---
     const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
     const SHEET_NAME = 'Sheet1';
-    const DATA_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tSheet=${SHEET_NAME}&headers=1&tq=&tqx=out:json`;
+
+    // Using opensheet.elk.sh (your public sheet must be "Anyone with the link")
+    const DATA_URL = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_NAME}`;
 
     let dataTable;
 
-    // Robust Image URL Parser
+    // --- IMAGE URL PARSER (THUMBNAIL METHOD) ---
     function getImageUrl(rawUrl) {
         if (!rawUrl || !rawUrl.trim()) return null;
         
@@ -113,13 +120,13 @@
             if (match) id = match[1];
         }
 
-        // If we found a Google Drive ID
+        // If we found a Google Drive ID, use thumbnail URL
         if (id) {
-            // This is the direct download link format
-            return `https://drive.google.com/uc?export=view&id=${id}`;
+            // This is the same pattern your Apps Script uses
+            return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
         }
 
-        // Case 3: Standard Image Link (ends in .jpg, etc)
+        // Case 3: Standard image link (ends in image extension)
         if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
             return url;
         }
@@ -127,57 +134,62 @@
         return null;
     }
 
+    // --- BUILD TABLE FROM JSON ARRAY ---
     function initTable(data) {
-        const headers = data.table.cols.map(col => col.label || col.id);
-        
-        // Build Header HTML
+        if (!data || !data.length) {
+            $('#loading').html('No data found in sheet.');
+            return;
+        }
+
+        // 1) Determine headers from the first object keys
+        const headers = Object.keys(data[0]);
+
+        // 2) Build header HTML
         const thead = $('#dataTable thead');
         thead.empty();
         headers.forEach(h => thead.append(`<th>${h}</th>`));
 
-        // Build Rows Data
-        const rows = data.table.rows.map(row => {
-            return row.c.map(cell => {
-                if (!cell) return "";
-                
-                let rawVal = cell.v ? cell.v.toString() : "";
-                let imgUrl = getImageUrl(rawVal);
+        // 3) Build rows
+        const rows = data.map(rowObj => {
+            return headers.map((col, index) => {
+                const rawVal = rowObj[col] || "";
+                const imgUrl = getImageUrl(rawVal);
 
-                // If valid image URL found
+                // First column (medication name) gets bold styling
+                const cssClass = (index === 0) ? "med-name" : "other-data";
+
                 if (imgUrl) {
-                    // We add an onerror handler to show text if image fails
                     return `<img src="${imgUrl}" class="table-img" onclick="zoomImage('${imgUrl}')" onerror="this.outerHTML='<span class=\\'img-error\\' title=\\'Image link found but could not load. Check Drive Permissions.\\'>Image Error</span>'">`;
                 }
-                
+
                 // If cell explicitly says "No Image"
                 if (rawVal.toLowerCase() === 'no image') {
                     return `<span class="no-image">No Image</span>`;
                 }
 
-                return rawVal;
+                return `<div class="${cssClass}">${rawVal}</div>`;
             });
         });
 
-        // --- FIX FOR DATATABLES ERROR & SEARCH BAR ---
-        // Check if table already exists
+        // 4) Initialize (or update) DataTable
         if ($.fn.dataTable.isDataTable('#dataTable')) {
-            // Clear existing data and add new rows (Dynamic Update)
             $('#dataTable').DataTable().clear().rows.add(rows).draw();
         } else {
-            // Initialize Fresh Table
             dataTable = $('#dataTable').DataTable({
                 data: rows,
                 columns: headers.map(h => ({ title: h })),
-                // 't' means only the table. We hide default search/length/pagination.
-                dom: 't', 
+                dom: 't',          // only table, no default search/length/info
                 paging: false,
                 info: false,
                 ordering: true,
-                searching: true 
+                searching: true    // we still use internal search, just hidden
             });
         }
+
+        $('#loading').hide();
     }
 
+    // --- MODAL ZOOM ---
     function zoomImage(src) {
         const modal = document.getElementById('imgModal');
         const modalImg = document.getElementById('modalImg');
@@ -185,39 +197,33 @@
         modalImg.src = src;
     }
 
+    // --- FETCH SHEET DATA ---
     async function fetchSheetData() {
         try {
             const response = await fetch(DATA_URL);
-            const text = await response.text();
-            const jsonString = text.substring(47).slice(0, -2);
-            const json = JSON.parse(jsonString);
-            
-            initTable(json);
+            const data = await response.json();  // opensheet returns JSON directly
+            initTable(data);
             $('#loading').hide();
         } catch (error) {
             console.error('Error:', error);
-            $('#loading').html('Error loading data.');
+            $('#loading').html('Error loading data. Check console.');
         }
     }
 
     $(document).ready(function() {
-        // Initial Load
+        // Initial load
         fetchSheetData();
 
-        // --- AUTO REFRESH (Dynamic Data) ---
-        // Check for new data every 30 seconds
+        // Auto refresh every 30 seconds
         setInterval(fetchSheetData, 30000);
 
-        // --- CONNECT CUSTOM SEARCH BAR ---
-        // This links the top input box to the hidden DataTables search logic
+        // --- CONNECT CUSTOM SEARCH BAR TO DATATABLES SEARCH ---
         $('#customSearch').on('keyup clear', function() {
-            // Check if dataTable is initialized before searching
             if ($.fn.dataTable.isDataTable('#dataTable')) {
                 $('#dataTable').DataTable().search($(this).val()).draw();
             }
         });
     });
-
 </script>
 </body>
 </html>

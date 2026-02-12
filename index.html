@@ -5,14 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>High Alert Medications</title>
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-    <!-- Google Material Icons for the header -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f4f9; }
         
-        /* Custom Header Styling */
+        /* Header Styling */
         .app-header {
-            background-color: #d32f2f; /* Red color */
+            background-color: #d32f2f;
             color: white;
             padding: 20px;
             text-align: center;
@@ -28,7 +27,7 @@
         /* Container */
         .container { max-width: 1200px; margin: 20px auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; }
 
-        /* Custom Search Bar Styling */
+        /* Custom Search Bar */
         .custom-search-wrapper { margin-bottom: 20px; }
         .custom-search-input {
             width: 100%; 
@@ -36,7 +35,7 @@
             font-size: 16px; 
             border: 2px solid #ddd; 
             border-radius: 6px;
-            box-sizing: border-box; /* Ensures padding doesn't increase width */
+            box-sizing: border-box;
             transition: border-color 0.3s;
         }
         .custom-search-input:focus { border-color: #d32f2f; outline: none; }
@@ -46,18 +45,16 @@
         #dataTable th { background-color: #f8f9fa; text-align: left; padding: 12px; border-bottom: 2px solid #ddd; }
         #dataTable td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: middle; }
         
-        /* Smart Image Styling */
+        /* Image Styling */
         .table-img { 
             width: 80px; height: 80px; object-fit: cover; border-radius: 4px; cursor: pointer; 
-            border: 1px solid #eee; transition: transform 0.2s; 
+            border: 1px solid #eee; transition: transform 0.2s; background-color: #f0f0f0;
         }
         .table-img:hover { transform: scale(1.05); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-
-        /* Remove default DataTables controls we don't want */
-        .dataTables_length, .dataTables_info, .dataTables_paginate { display: none; }
         
-        /* No Image Placeholder */
-        .no-image { color: #999; font-style: italic; font-size: 0.9em; }
+        /* No Image / Error placeholders */
+        .no-image, .img-error { color: #999; font-style: italic; font-size: 0.9em; display: block; text-align: center; }
+        .img-error { color: #d32f2f; cursor: help; }
 
         /* Modal for Zoom */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
@@ -66,14 +63,13 @@
 </head>
 <body>
 
-<!-- Header Section -->
 <div class="app-header">
     <span class="material-icons">warning</span>
     <h1>HIGH ALERT MEDICATIONS</h1>
 </div>
 
 <div class="container">
-    <!-- Custom Search Input -->
+    <!-- Custom Search Input (The only one that will be visible) -->
     <div class="custom-search-wrapper">
         <input type="text" id="customSearch" class="custom-search-input" placeholder="Search medication name...">
     </div>
@@ -86,7 +82,6 @@
     </table>
 </div>
 
-<!-- Image Zoom Modal -->
 <div id="imgModal" class="modal" onclick="this.style.display='none'">
     <img class="modal-content" id="modalImg">
 </div>
@@ -96,31 +91,35 @@
 
 <script>
     const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
-    const SHEET_NAME = 'Sheet1'; // Change if your tab name is different
+    const SHEET_NAME = 'Sheet1';
     const DATA_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tSheet=${SHEET_NAME}&headers=1&tq=&tqx=out:json`;
 
     let dataTable;
 
-    // Smart Function to Convert Google Drive Links to Images
+    // Robust Image URL Parser
     function getImageUrl(rawUrl) {
         if (!rawUrl || !rawUrl.trim()) return null;
         
         let url = rawUrl.trim();
+        let id = null;
 
-        // 1. Check if it's a Google Drive Link
-        // Pattern A: /d/ID/
+        // Case 1: drive.google.com/file/d/ID/...
         let match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (match) {
-            return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+        if (match) id = match[1];
+
+        // Case 2: drive.google.com/open?id=ID
+        if (!id) {
+            match = url.match(/id=([a-zA-Z0-9_-]+)/);
+            if (match) id = match[1];
         }
 
-        // Pattern B: open?id=ID
-        match = url.match(/id=([a-zA-Z0-9_-]+)/);
-        if (match) {
-            return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+        // If we found a Google Drive ID
+        if (id) {
+            // This is the direct download link format
+            return `https://drive.google.com/uc?export=view&id=${id}`;
         }
 
-        // 2. Check if it's a standard image link (ends in .jpg, .png)
+        // Case 3: Standard Image Link (ends in .jpg, etc)
         if (url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
             return url;
         }
@@ -131,12 +130,12 @@
     function initTable(data) {
         const headers = data.table.cols.map(col => col.label || col.id);
         
-        // Build Header
+        // Build Header HTML
         const thead = $('#dataTable thead');
         thead.empty();
         headers.forEach(h => thead.append(`<th>${h}</th>`));
 
-        // Build Rows
+        // Build Rows Data
         const rows = data.table.rows.map(row => {
             return row.c.map(cell => {
                 if (!cell) return "";
@@ -144,32 +143,37 @@
                 let rawVal = cell.v ? cell.v.toString() : "";
                 let imgUrl = getImageUrl(rawVal);
 
-                // If we found a valid image URL
+                // If valid image URL found
                 if (imgUrl) {
-                    return `<img src="${imgUrl}" class="table-img" onclick="zoomImage('${imgUrl}')" onerror="this.parentElement.innerHTML='<span class=\\'no-image\\'>Image Error</span>'">`;
+                    // We add an onerror handler to show text if image fails
+                    return `<img src="${imgUrl}" class="table-img" onclick="zoomImage('${imgUrl}')" onerror="this.outerHTML='<span class=\\'img-error\\' title=\\'Image link found but could not load. Check Drive Permissions.\\'>Image Error</span>'">`;
                 }
                 
-                // If cell is empty or specifically says "No Image"
-                if (!rawVal || rawVal.toLowerCase() === 'no image') {
+                // If cell explicitly says "No Image"
+                if (rawVal.toLowerCase() === 'no image') {
                     return `<span class="no-image">No Image</span>`;
                 }
 
-                // Otherwise just text
                 return rawVal;
             });
         });
 
-        // Initialize DataTable
-        if (dataTable) {
-            dataTable.clear().rows.add(rows).draw();
+        // --- FIX FOR DATATABLES ERROR & SEARCH BAR ---
+        // Check if table already exists
+        if ($.fn.dataTable.isDataTable('#dataTable')) {
+            // Clear existing data and add new rows (Dynamic Update)
+            $('#dataTable').DataTable().clear().rows.add(rows).draw();
         } else {
+            // Initialize Fresh Table
             dataTable = $('#dataTable').DataTable({
                 data: rows,
                 columns: headers.map(h => ({ title: h })),
-                paging: false, // FALSE = Shows all data (no "show entries")
-                searching: true, // TRUE = Enables search logic
-                info: false, // Hides "Showing 1 of X" text
-                responsive: true
+                // 't' means only the table. We hide default search/length/pagination.
+                dom: 't', 
+                paging: false,
+                info: false,
+                ordering: true,
+                searching: true 
             });
         }
     }
@@ -197,11 +201,20 @@
     }
 
     $(document).ready(function() {
+        // Initial Load
         fetchSheetData();
 
-        // Connect custom search bar to DataTables
+        // --- AUTO REFRESH (Dynamic Data) ---
+        // Check for new data every 30 seconds
+        setInterval(fetchSheetData, 30000);
+
+        // --- CONNECT CUSTOM SEARCH BAR ---
+        // This links the top input box to the hidden DataTables search logic
         $('#customSearch').on('keyup clear', function() {
-            dataTable.search($(this).val()).draw();
+            // Check if dataTable is initialized before searching
+            if ($.fn.dataTable.isDataTable('#dataTable')) {
+                $('#dataTable').DataTable().search($(this).val()).draw();
+            }
         });
     });
 

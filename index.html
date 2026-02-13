@@ -32,7 +32,7 @@
         /* Container */
         .container { max-width: 1200px; margin: 20px auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; }
 
-        /* Control Row Layout - REORDERED */
+        /* Control Row Layout */
         .control-row {
             display: flex;
             align-items: center;
@@ -57,7 +57,7 @@
         }
         .custom-search-input:focus { border-color: #d32f2f; outline: none; }
 
-        /* Download Group (Muat turun) */
+        /* Download Group */
         .download-group {
             display: flex;
             align-items: center;
@@ -181,6 +181,7 @@
     const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
     const SHEET_NAME = 'Sheet1';
     const BASE_URL = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_NAME}`;
+    const CACHE_KEY = 'medAppCache_v1'; // Key for localStorage
 
     const CONFIG_COLUMNS = ['CONFIG_TITLE', 'CONFIG_PDF'];
     let dataTable;
@@ -231,7 +232,10 @@
     // --- BUILD TABLE ---
     function initTable(data) {
         if (!Array.isArray(data) || data.length === 0) {
-            $('#loading').html('No data found.').css('color', 'red');
+            // Only show error if no cache exists
+            if (!$.fn.dataTable.isDataTable('#dataTable')) {
+                $('#loading').html('No data found.').css('color', 'red');
+            }
             return;
         }
 
@@ -254,8 +258,9 @@
         let allHeaders = Object.keys(firstRow);
         let tableHeaders = allHeaders.filter(h => !CONFIG_COLUMNS.includes(h));
 
+        // Destroy existing table if exists (for updates)
         if ($.fn.dataTable.isDataTable('#dataTable')) {
-            $('#dataTable').DataTable().destroy();
+            $('#dataTable').DataTable().clear().destroy();
             $('#dataTable').empty();
         }
 
@@ -301,6 +306,12 @@
                 $('#refreshBtn .material-icons').removeClass('spin');
             }
         });
+        
+        // Re-apply search filter if user had typed something
+        const currentSearch = $('#customSearch').val();
+        if(currentSearch) {
+             dataTable.search(currentSearch).draw();
+        }
     }
 
     function zoomImage(src) {
@@ -310,32 +321,72 @@
         modalImg.src = src;
     }
 
+    // --- DATA FETCHING WITH CACHING ---
     async function fetchSheetData(force = false) {
+        const now = new Date().getTime();
+        const cachedRaw = localStorage.getItem(CACHE_KEY);
+        let cachedData = null;
+
+        // 1. Try to load from Cache first (Instant Load)
+        if (cachedRaw && !force) {
+            try {
+                const cacheObj = JSON.parse(cachedRaw);
+                // Cache is valid for 60 minutes (3600000 ms), but we use it even if expired 
+                // just to show something quickly while we fetch.
+                cachedData = cacheObj.data;
+                initTable(cachedData); 
+                $('#loading').hide();
+            } catch (e) {
+                console.error("Cache parse error", e);
+            }
+        }
+
+        // 2. Fetch Fresh Data from Network
+        // If force=true, we want to show spinner. If cache existed, we don't need loading text.
+        if (force) {
+            $('#refreshBtn .material-icons').addClass('spin');
+            if(!cachedData) $('#loading').show().text('Refreshing...');
+        }
+
         let url = BASE_URL;
-        
         if (force) {
             url = BASE_URL + `?t=${new Date().getTime()}`;
-            $('#refreshBtn .material-icons').addClass('spin');
         }
 
         try {
             const response = await fetch(url);
             const data = await response.json();
+            
+            // Save to Cache
+            localStorage.setItem(CACHE_KEY, JSON.stringify({
+                timestamp: now,
+                data: data
+            }));
+
+            // Update UI with fresh data
             initTable(data);
+            
         } catch (error) {
-            console.error('Error:', error);
-            $('#loading').html('Error loading data.').css('color', 'red');
+            console.error('Network Error:', error);
+            // If we have cache, we are fine. If not, show error.
+            if (!cachedData) {
+                $('#loading').html('Error loading data. Check connection.').css('color', 'red');
+            }
             $('#refreshBtn .material-icons').removeClass('spin');
         }
     }
 
     function forceRefresh() {
+        // Pass true to force network fetch and spin icon
         fetchSheetData(true);
     }
 
     $(document).ready(function() {
+        // Initial load (will use cache if available)
         fetchSheetData();
-        setInterval(() => fetchSheetData(false), 60000);
+        
+        // Auto-refresh every 5 minutes in background
+        setInterval(() => fetchSheetData(false), 300000);
 
         $('#customSearch').on('keyup clear', function() {
             if ($.fn.dataTable.isDataTable('#dataTable')) {

@@ -36,7 +36,6 @@
         }
 
         .app-header h1 { margin: 0; font-size: 24px; letter-spacing: 1px; line-height: 1.2; }
-        /* Icon class remains in CSS just in case, but removed from HTML */
 
         /* Date Styling */
         #pageDate {
@@ -89,6 +88,22 @@
         #dataTable { width: 100% !important; border-collapse: collapse; }
         #dataTable th { background-color: #f8f9fa; text-align: left; padding: 12px; border-bottom: 2px solid #ddd; }
         #dataTable td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: middle; }
+
+        /* --- NEW: Column Width Optimization --- */
+        /* Force 'Nama Ubat' (1st column) to fit content width (finds longest name) */
+        #dataTable td:nth-child(1), #dataTable th:nth-child(1) {
+            white-space: nowrap; /* Prevents text wrapping, pushing width to fit longest name */
+            width: 1%;           /* Trick to force 'shrink-to-fit' behavior */
+        }
+
+        /* Force 'Gambar' (2nd column) to hug the previous column */
+        #dataTable td:nth-child(2), #dataTable th:nth-child(2) {
+            width: 100px;        /* Fixed width for images */
+            white-space: nowrap; /* Keep image container tight */
+            padding-left: 5px;   /* Reduced left padding to bring it closer */
+            text-align: center;
+        }
+        /* --------------------------------------- */
         
         /* Image Styling */
         .table-img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 1px solid #eee; transition: transform 0.2s; background-color: #f0f0f0; }
@@ -106,8 +121,6 @@
 
 <div class="app-header">
     <div class="header-content">
-        <!-- WARNING ICON REMOVED AS REQUESTED -->
-        
         <!-- Wrapped Title and Date in a block -->
         <div class="title-block">
             <h1 id="pageTitle">HIGH ALERT MEDICATIONS</h1>

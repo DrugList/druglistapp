@@ -9,14 +9,14 @@
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f4f9; }
         
-        /* Header Styling - Simplified */
+        /* Header Styling */
         .app-header {
             background-color: #d32f2f;
             color: white;
             padding: 20px 30px;
             display: flex;
             align-items: center;
-            justify-content: center; /* Center the title now that buttons are gone */
+            justify-content: center;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         
@@ -32,18 +32,18 @@
         /* Container */
         .container { max-width: 1200px; margin: 20px auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; }
 
-        /* NEW: Control Row Layout (Search + Buttons) */
+        /* Control Row Layout - REORDERED */
         .control-row {
             display: flex;
             align-items: center;
             gap: 15px;
             margin-bottom: 20px;
-            flex-wrap: wrap; /* Wraps on small screens */
+            flex-wrap: wrap;
         }
 
         /* Search Bar Wrapper */
         .search-wrapper {
-            flex-grow: 1; /* Takes up available space */
+            flex-grow: 1;
             min-width: 200px;
         }
         .custom-search-input {
@@ -57,8 +57,8 @@
         }
         .custom-search-input:focus { border-color: #d32f2f; outline: none; }
 
-        /* Button Group on the right */
-        .button-group {
+        /* Download Group (Muat turun) */
+        .download-group {
             display: flex;
             align-items: center;
             gap: 10px;
@@ -83,7 +83,7 @@
             align-items: center;
             gap: 5px;
             transition: opacity 0.2s;
-            border: 2px solid #d32f2f; /* Outlined style for white background */
+            border: 2px solid #d32f2f;
             cursor: pointer;
         }
         .header-btn:hover {
@@ -91,7 +91,7 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
-        /* Specific style for Refresh to match previous look */
+        /* Refresh Button Style */
         #refreshBtn {
             background-color: #2196f3;
             color: white;
@@ -130,7 +130,6 @@
 <body>
 
 <div class="app-header">
-    <!-- CENTERED TITLE -->
     <div class="header-content">
         <span class="material-icons">warning</span>
         <h1 id="pageTitle">HIGH ALERT MEDICATIONS</h1>
@@ -139,28 +138,26 @@
 
 <div class="container">
     
-    <!-- CONTROL ROW: Search on Left, Buttons on Right -->
+    <!-- CONTROL ROW: Search → Refresh → Muat turun -->
     <div class="control-row">
-        <!-- Search Input -->
+        <!-- 1. Search Input -->
         <div class="search-wrapper">
             <input type="text" id="customSearch" class="custom-search-input" placeholder="Search medication name...">
         </div>
 
-        <!-- Buttons Group -->
-        <div class="button-group">
+        <!-- 2. Refresh Button -->
+        <button id="refreshBtn" onclick="forceRefresh()" class="header-btn">
+            <span class="material-icons" style="font-size: 18px;">refresh</span>
+            Refresh
+        </button>
+
+        <!-- 3. Muat turun (Download) -->
+        <div class="download-group">
             <span class="download-label">Muat turun:</span>
-            
-            <!-- PDF BUTTON -->
             <a id="pdfButton" href="#" target="_blank" class="header-btn" style="display: none;">
                 <span class="material-icons" style="font-size: 18px;">picture_as_pdf</span>
                 PDF
             </a>
-
-            <!-- REFRESH BUTTON -->
-            <button id="refreshBtn" onclick="forceRefresh()" class="header-btn">
-                <span class="material-icons" style="font-size: 18px;">refresh</span>
-                Refresh
-            </button>
         </div>
     </div>
 

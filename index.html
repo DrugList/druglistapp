@@ -6,6 +6,8 @@
     <title>High Alert Medications</title>
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Added PapaParse for fast CSV handling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f4f9; }
         
@@ -179,10 +181,10 @@
 <script>
     // --- CONFIG ---
     const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
-    const SHEET_NAME = 'Sheet1';
-    const BASE_URL = `https://opensheet.elk.sh/${SHEET_ID}/${SHEET_NAME}`;
-    const CACHE_KEY = 'medAppCache_v1'; // Key for localStorage
-
+    // CHANGED: Using Google's direct CSV export link for speed
+    const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0&t=`;
+    
+    const CACHE_KEY = 'medAppCache_v2'; // Updated cache key
     const CONFIG_COLUMNS = ['CONFIG_TITLE', 'CONFIG_PDF'];
     let dataTable;
 
@@ -232,7 +234,6 @@
     // --- BUILD TABLE ---
     function initTable(data) {
         if (!Array.isArray(data) || data.length === 0) {
-            // Only show error if no cache exists
             if (!$.fn.dataTable.isDataTable('#dataTable')) {
                 $('#loading').html('No data found.').css('color', 'red');
             }
@@ -258,7 +259,7 @@
         let allHeaders = Object.keys(firstRow);
         let tableHeaders = allHeaders.filter(h => !CONFIG_COLUMNS.includes(h));
 
-        // Destroy existing table if exists (for updates)
+        // Destroy existing table if exists
         if ($.fn.dataTable.isDataTable('#dataTable')) {
             $('#dataTable').DataTable().clear().destroy();
             $('#dataTable').empty();
@@ -307,7 +308,7 @@
             }
         });
         
-        // Re-apply search filter if user had typed something
+        // Re-apply search filter
         const currentSearch = $('#customSearch').val();
         if(currentSearch) {
              dataTable.search(currentSearch).draw();
@@ -321,18 +322,16 @@
         modalImg.src = src;
     }
 
-    // --- DATA FETCHING WITH CACHING ---
+    // --- DATA FETCHING (Direct CSV + Caching) ---
     async function fetchSheetData(force = false) {
         const now = new Date().getTime();
         const cachedRaw = localStorage.getItem(CACHE_KEY);
         let cachedData = null;
 
-        // 1. Try to load from Cache first (Instant Load)
+        // 1. Load from Cache Instantly (if not forcing refresh)
         if (cachedRaw && !force) {
             try {
                 const cacheObj = JSON.parse(cachedRaw);
-                // Cache is valid for 60 minutes (3600000 ms), but we use it even if expired 
-                // just to show something quickly while we fetch.
                 cachedData = cacheObj.data;
                 initTable(cachedData); 
                 $('#loading').hide();
@@ -341,34 +340,39 @@
             }
         }
 
-        // 2. Fetch Fresh Data from Network
-        // If force=true, we want to show spinner. If cache existed, we don't need loading text.
+        // 2. Fetch Fresh Data
         if (force) {
             $('#refreshBtn .material-icons').addClass('spin');
             if(!cachedData) $('#loading').show().text('Refreshing...');
         }
 
-        let url = BASE_URL;
-        if (force) {
-            url = BASE_URL + `?t=${new Date().getTime()}`;
-        }
+        // Add timestamp to bypass browser cache
+        const url = CSV_URL + now;
 
         try {
+            // Fetch CSV text directly from Google
             const response = await fetch(url);
-            const data = await response.json();
+            const csvText = await response.text();
             
+            // Parse CSV to JSON using PapaParse
+            const result = Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true
+            });
+
+            const data = result.data;
+
             // Save to Cache
             localStorage.setItem(CACHE_KEY, JSON.stringify({
                 timestamp: now,
                 data: data
             }));
 
-            // Update UI with fresh data
+            // Update UI
             initTable(data);
             
         } catch (error) {
             console.error('Network Error:', error);
-            // If we have cache, we are fine. If not, show error.
             if (!cachedData) {
                 $('#loading').html('Error loading data. Check connection.').css('color', 'red');
             }
@@ -377,16 +381,12 @@
     }
 
     function forceRefresh() {
-        // Pass true to force network fetch and spin icon
         fetchSheetData(true);
     }
 
     $(document).ready(function() {
-        // Initial load (will use cache if available)
         fetchSheetData();
-        
-        // Auto-refresh every 5 minutes in background
-        setInterval(() => fetchSheetData(false), 300000);
+        setInterval(() => fetchSheetData(false), 300000); // 5 mins auto-refresh
 
         $('#customSearch').on('keyup clear', function() {
             if ($.fn.dataTable.isDataTable('#dataTable')) {

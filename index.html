@@ -35,11 +35,18 @@
             align-items: flex-end;
         }
 
-        .app-header h1 { margin: 0; font-size: 24px; letter-spacing: 1px; line-height: 1.2; }
+        /* UPDATED: Dynamic Font Size for Title */
+        .app-header h1 { 
+            margin: 0; 
+            /* Min 18px, Preferred 4% of width, Max 24px */
+            font-size: clamp(18px, 4vw, 24px); 
+            letter-spacing: 1px; 
+            line-height: 1.2; 
+        }
 
         /* Date Styling */
         #pageDate {
-            font-size: 14px;
+            font-size: clamp(12px, 2.5vw, 14px); /* Dynamic font size for date */
             opacity: 0.9;
             margin-top: 2px;
         }
@@ -122,27 +129,27 @@
 
         /* --- RESPONSIVE FIX FOR MOBILE DEVICES --- */
         @media (max-width: 768px) {
-            /* 1. Header: Center items on mobile */
+            /* Header: Center items on mobile */
             .app-header { padding: 15px; }
             .header-content { flex-direction: column; gap: 5px; }
             .title-block { align-items: center; } /* Center title text */
             
-            /* 2. Container: Reduce margin/padding */
+            /* Container: Reduce margin/padding */
             .container { margin: 10px; padding: 15px; }
 
-            /* 3. Controls: Stack them vertically */
+            /* Controls: Stack them vertically */
             .control-row { flex-direction: column; align-items: stretch; }
             .search-wrapper { width: 100%; }
             /* Center buttons below search */
             .button-group, .download-group { justify-content: center; margin-top: 10px; } 
 
-            /* 4. Table: Allow text wrapping so it fits screen */
+            /* Table: Allow text wrapping so it fits screen */
             #dataTable td:nth-child(1), #dataTable th:nth-child(1) {
                 white-space: normal !important; /* Allows long names to wrap */
                 width: auto !important;         /* Fills available space */
             }
 
-            /* 5. Images: Slightly smaller on mobile */
+            /* Images: Slightly smaller on mobile */
             .table-img { width: 60px; height: 60px; }
             #dataTable td:nth-child(2), #dataTable th:nth-child(2) {
                 width: 70px !important; /* Adjust column to match smaller image */

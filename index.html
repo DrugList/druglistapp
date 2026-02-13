@@ -114,38 +114,42 @@
             border-spacing: 0 15px;
         }
 
+        /* UPDATED: Header Row is Blue */
         #dataTable th { 
-            background-color: transparent; 
+            background-color: #1976d2; /* Blue background for titles */
+            color: white;              /* White text */
             text-align: left; 
-            padding: 0 10px 10px 10px; 
-            border-bottom: 2px solid #eee;
-            color: #777;
-            font-size: 0.9em;
-            text-transform: uppercase;
+            padding: 12px 10px;
+            border-bottom: none;
+            font-weight: bold;
         }
+        
+        /* Rounded corners for Header "Bar" */
+        #dataTable th:first-child { border-radius: 8px 0 0 8px; }
+        #dataTable th:last-child { border-radius: 0 8px 8px 0; }
 
         #dataTable td {
             padding: 15px 10px;
             vertical-align: middle;
             line-height: 1.5;
-            background-color: #fff;
+            background-color: #fff;    /* White background for data */
             border-top: 1px solid #e0e0e0;
             border-bottom: 1px solid #e0e0e0;
         }
 
-        /* FIXED: Nama Ubat Column shrinks to fit the longest name */
-        #dataTable td:nth-child(1), #dataTable th:nth-child(1) {
+        /* FIXED: Nama Ubat Data Cell - White background, Dark text */
+        #dataTable td:nth-child(1) {
             width: 1%;                /* Forces shrink-to-fit behavior */
             white-space: nowrap;      /* Keeps name on one line */
-            border-left: 1px solid #e0e0e0;
             border-radius: 8px 0 0 8px;
             font-weight: 700;
-            color: #333;
+            color: #333;              /* Dark text for data */
+            border-left: 1px solid #e0e0e0;
         }
 
         /* Image Column - Tight width */
         #dataTable td:nth-child(2), #dataTable th:nth-child(2) {
-            width: 90px;              /* Fixed narrow width */
+            width: 90px;
             white-space: nowrap;
             padding-left: 5px;
             text-align: left;
@@ -268,7 +272,7 @@
     const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
     const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0&t=`;
 
-    const CACHE_KEY = 'medAppCache_v6'; // Incremented cache key
+    const CACHE_KEY = 'medAppCache_v8'; // Incremented cache key
     const CONFIG_COLUMNS = ['CONFIG_TITLE', 'CONFIG_PDF', 'CONFIG_DATE', 'CONFIG_DEFINITION'];
     let dataTable;
 

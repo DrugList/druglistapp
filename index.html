@@ -10,7 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f4f4f9; }
-        
+
         /* Header Styling */
         .app-header {
             background-color: #d32f2f;
@@ -20,8 +20,13 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            
+            /* NEW: Sticky Header Properties */
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
-        
+
         .header-content {
             display: flex;
             align-items: center;
@@ -36,12 +41,12 @@
         }
 
         /* UPDATED: Dynamic Font Size for Title */
-        .app-header h1 { 
-            margin: 0; 
+        .app-header h1 {
+            margin: 0;
             /* Min 18px, Preferred 4% of width, Max 24px */
-            font-size: clamp(18px, 4vw, 24px); 
-            letter-spacing: 1px; 
-            line-height: 1.2; 
+            font-size: clamp(18px, 4vw, 24px);
+            letter-spacing: 1px;
+            line-height: 1.2;
         }
 
         /* Date Styling */
@@ -74,6 +79,17 @@
             gap: 15px;
             margin-bottom: 20px;
             flex-wrap: wrap;
+
+            /* NEW: Sticky Control Row Properties */
+            position: sticky;
+            top: 68px; /* Height of the .app-header (approx) */
+            background-color: white;
+            z-index: 99;
+            padding: 10px 0 20px 0; /* Added top/bottom padding for visual spacing */
+            margin-left: -20px;  /* Extend background to container edge */
+            margin-right: -20px;
+            padding-left: 20px;  /* Align content back to container padding */
+            padding-right: 20px;
         }
 
         /* Search Bar Wrapper */
@@ -95,7 +111,7 @@
             align-items: center; gap: 5px; transition: opacity 0.2s; border: 2px solid #d32f2f; cursor: pointer;
         }
         .header-btn:hover { background-color: #fff5f5; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        
+
         /* Refresh Button */
         #refreshBtn { background-color: #2196f3; color: white; border-color: #2196f3; }
         #refreshBtn:hover { background-color: #1976d2; border-color: #1976d2; }
@@ -107,32 +123,32 @@
         /* Table Styling */
         #dataTable { width: 100% !important; border-collapse: collapse; }
         #dataTable th { background-color: #f8f9fa; text-align: left; padding: 12px; border-bottom: 2px solid #ddd; }
-        
+
         /* Standardized Paragraph Spacing */
-        #dataTable td { 
-            padding: 15px 10px; 
-            border-bottom: 1px solid #eee; 
-            vertical-align: middle; 
-            line-height: 1.5; 
+        #dataTable td {
+            padding: 15px 10px;
+            border-bottom: 1px solid #eee;
+            vertical-align: middle;
+            line-height: 1.5;
         }
 
         /* Desktop Column Width Optimization */
         #dataTable td:nth-child(1), #dataTable th:nth-child(1) {
-            white-space: nowrap; 
-            width: 1%;           
+            white-space: nowrap;
+            width: 1%;
         }
 
         #dataTable td:nth-child(2), #dataTable th:nth-child(2) {
-            width: 100px;        
-            white-space: nowrap; 
+            width: 100px;
+            white-space: nowrap;
             padding-left: 5px;
             text-align: center;
         }
-        
+
         /* Image Styling */
         .table-img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 1px solid #eee; transition: transform 0.2s; background-color: #f0f0f0; }
         .table-img:hover { transform: scale(1.05); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-        
+
         .no-image, .img-error { color: #999; font-style: italic; font-size: 0.9em; display: block; text-align: center; }
         .img-error { color: #d32f2f; cursor: help; }
 
@@ -146,15 +162,25 @@
             .app-header { padding: 15px; }
             .header-content { flex-direction: column; gap: 5px; }
             .title-block { align-items: center; } /* Center title text */
-            
+
             /* Container: Reduce margin/padding */
             .container { margin: 10px; padding: 15px; }
 
             /* Controls: Stack them vertically */
-            .control-row { flex-direction: column; align-items: stretch; }
+            .control-row {
+                flex-direction: column;
+                align-items: stretch;
+                
+                /* Mobile Sticky Adjustments */
+                top: 75px; /* Adjusted for potentially taller mobile header */
+                margin-left: -15px; /* Extend to mobile container edge */
+                margin-right: -15px;
+                padding-left: 15px;
+                padding-right: 15px;
+            }
             .search-wrapper { width: 100%; }
             /* Center buttons below search */
-            .button-group, .download-group { justify-content: center; margin-top: 10px; } 
+            .button-group, .download-group { justify-content: center; margin-top: 10px; }
 
             /* Table: Allow text wrapping so it fits screen */
             #dataTable td:nth-child(1), #dataTable th:nth-child(1) {
@@ -183,7 +209,7 @@
 </div>
 
 <div class="container">
-    
+
     <!-- NEW: Definition Box -->
     <div id="pageDefinition" class="definition-box"></div>
 
@@ -226,7 +252,7 @@
     // --- CONFIG ---
     const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
     const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0&t=`;
-    
+
     const CACHE_KEY = 'medAppCache_v4'; // Incremented cache key to ensure fresh load for new feature
     // UPDATED: Added CONFIG_DEFINITION to the list of config columns
     const CONFIG_COLUMNS = ['CONFIG_TITLE', 'CONFIG_PDF', 'CONFIG_DATE', 'CONFIG_DEFINITION'];
@@ -279,7 +305,7 @@
         if (firstRow['CONFIG_DATE']) {
             $('#pageDate').text(firstRow['CONFIG_DATE']);
         } else {
-            $('#pageDate').text(''); 
+            $('#pageDate').text('');
         }
 
         // NEW: Set Definition
@@ -332,7 +358,7 @@
                 $('#refreshBtn .material-icons').removeClass('spin');
             }
         });
-        
+
         const currentSearch = $('#customSearch').val();
         if(currentSearch) dataTable.search(currentSearch).draw();
     }
@@ -353,7 +379,7 @@
         if (cachedRaw && !force) {
             try {
                 cachedData = JSON.parse(cachedRaw).data;
-                initTable(cachedData); 
+                initTable(cachedData);
                 $('#loading').hide();
             } catch (e) { console.error(e); }
         }
@@ -373,7 +399,7 @@
 
             localStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: now, data: data }));
             initTable(data);
-            
+
         } catch (error) {
             console.error('Network Error:', error);
             if (!cachedData) $('#loading').html('Error loading data.').css('color', 'red');

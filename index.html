@@ -54,6 +54,19 @@
         /* Container */
         .container { max-width: 1200px; margin: 20px auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 8px; }
 
+        /* NEW: Definition Box Styling */
+        .definition-box {
+            background-color: #fff3e0; /* Light orange/warning background */
+            border-left: 5px solid #d32f2f; /* Red accent bar */
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            color: #5d4037;
+            font-size: 15px;
+            line-height: 1.6;
+            display: none; /* Hidden by default until data loads */
+        }
+
         /* Control Row Layout */
         .control-row {
             display: flex;
@@ -171,6 +184,9 @@
 
 <div class="container">
     
+    <!-- NEW: Definition Box -->
+    <div id="pageDefinition" class="definition-box"></div>
+
     <!-- CONTROL ROW -->
     <div class="control-row">
         <div class="search-wrapper">
@@ -211,8 +227,9 @@
     const SHEET_ID = '1J0kxAA9hRf0kGI4SnUUPr_R7Y1PCGXEMBabkxTcSE8M';
     const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=0&t=`;
     
-    const CACHE_KEY = 'medAppCache_v3'; 
-    const CONFIG_COLUMNS = ['CONFIG_TITLE', 'CONFIG_PDF', 'CONFIG_DATE'];
+    const CACHE_KEY = 'medAppCache_v4'; // Incremented cache key to ensure fresh load for new feature
+    // UPDATED: Added CONFIG_DEFINITION to the list of config columns
+    const CONFIG_COLUMNS = ['CONFIG_TITLE', 'CONFIG_PDF', 'CONFIG_DATE', 'CONFIG_DEFINITION'];
     let dataTable;
 
     // --- IMAGE URL PARSER ---
@@ -252,23 +269,34 @@
 
         const firstRow = data[0];
 
+        // Set Page Title
         if (firstRow['CONFIG_TITLE']) {
             $('#pageTitle').text(firstRow['CONFIG_TITLE']);
             document.title = firstRow['CONFIG_TITLE'];
         }
 
+        // Set Page Date
         if (firstRow['CONFIG_DATE']) {
             $('#pageDate').text(firstRow['CONFIG_DATE']);
         } else {
             $('#pageDate').text(''); 
         }
 
+        // NEW: Set Definition
+        if (firstRow['CONFIG_DEFINITION']) {
+            $('#pageDefinition').html(firstRow['CONFIG_DEFINITION']).show();
+        } else {
+            $('#pageDefinition').hide();
+        }
+
+        // Set PDF Link
         if (firstRow['CONFIG_PDF']) {
             const pdfUrl = getPdfViewUrl(firstRow['CONFIG_PDF']);
             if (pdfUrl) $('#pdfButton').attr('href', pdfUrl).show();
         }
 
         let allHeaders = Object.keys(firstRow);
+        // Filters out CONFIG columns so they don't become table headers
         let tableHeaders = allHeaders.filter(h => !CONFIG_COLUMNS.includes(h));
 
         if ($.fn.dataTable.isDataTable('#dataTable')) {
